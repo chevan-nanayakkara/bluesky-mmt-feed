@@ -1,4 +1,5 @@
 # BlueSky MMT Feed Generator
+# Feed Template Location: https://github.com/bluesky-social/feed-generator
 
 Welcome to the **BlueSky MMT Feed Generator** project! This repository contains the source code for an algorithmically-driven feed focused on discussions around **Modern Monetary Theory (MMT)** on the BlueSky social network.
 
@@ -36,3 +37,5 @@ The MMT Feed Generator uses the [ATProto protocol](https://atproto.com) to provi
    ```bash
    git clone https://github.com/yourusername/bluesky-mmt-feed.git
    cd bluesky-mmt-feed
+
+
