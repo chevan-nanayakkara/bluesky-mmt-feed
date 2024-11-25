@@ -1,49 +1,32 @@
-import {
-  OutputSchema as RepoEvent,
-  isCommit,
-} from './lexicon/types/com/atproto/sync/subscribeRepos'
+// src/subscription.ts
+
+import { OutputSchema as RepoEvent, isCommit } from './lexicon/types/com/atproto/sync/subscribeRepos'
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
+import { authenticate } from './auth'
+import { savePostToDatabase } from './util/db'
 
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
   async handleEvent(evt: RepoEvent) {
     if (!isCommit(evt)) return
 
+    const agent = await authenticate() // Authenticate with BlueSky
     const ops = await getOpsByType(evt)
 
-    // This logs the text of every post off the firehose.
-    // Just for fun :)
-    // Delete before actually using
     for (const post of ops.posts.creates) {
-      console.log(post.record.text)
-    }
+      const text = post.record.text.toLowerCase()
 
-    const postsToDelete = ops.posts.deletes.map((del) => del.uri)
-    const postsToCreate = ops.posts.creates
-      .filter((create) => {
-        // only alf-related posts
-        return create.record.text.toLowerCase().includes('alf')
-      })
-      .map((create) => {
-        // map alf-related posts to a db row
-        return {
-          uri: create.uri,
-          cid: create.cid,
-          indexedAt: new Date().toISOString(),
-        }
-      })
+      // Filter posts for Modern Monetary Theory (MMT)
+      if (text.includes('modern monetary theory') || text.includes('mmt')) {
+        console.log('MMT-related post found:', text)
 
-    if (postsToDelete.length > 0) {
-      await this.db
-        .deleteFrom('post')
-        .where('uri', 'in', postsToDelete)
-        .execute()
-    }
-    if (postsToCreate.length > 0) {
-      await this.db
-        .insertInto('post')
-        .values(postsToCreate)
-        .onConflict((oc) => oc.doNothing())
-        .execute()
+        // Save the post to the database
+        await savePostToDatabase({
+          uri: post.uri,
+          content: post.record.text,
+          author: post.record.author,
+          timestamp: post.record.createdAt,
+        })
+      }
     }
   }
 }

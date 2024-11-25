@@ -1,20 +1,27 @@
-import express from 'express'
-import { verifyJwt, AuthRequiredError, parseReqNsid } from '@atproto/xrpc-server'
-import { DidResolver } from '@atproto/identity'
+import { BskyAgent } from '@atproto/api'
 
-export const validateAuth = async (
-  req: express.Request,
-  serviceDid: string,
-  didResolver: DidResolver,
-): Promise<string> => {
-  const { authorization = '' } = req.headers
-  if (!authorization.startsWith('Bearer ')) {
-    throw new AuthRequiredError()
+let agent: BskyAgent | null = null
+
+/**
+ * Authenticate with BlueSky using credentials from environment variables.
+ * Reuse the agent for subsequent requests.
+ */
+export const authenticate = async (): Promise<BskyAgent> => {
+  if (agent) {
+    return agent // Reuse existing agent if already authenticated
   }
-  const jwt = authorization.replace('Bearer ', '').trim()
-  const nsid = parseReqNsid(req)
-  const parsed = await verifyJwt(jwt, serviceDid, nsid, async (did: string) => {
-    return didResolver.resolveAtprotoKey(did)
-  })
-  return parsed.iss
+
+  // Fetch credentials from environment variables
+  const username = process.env.BLUESKY_USERNAME
+  const password = process.env.BLUESKY_PASSWORD
+
+  if (!username || !password) {
+    throw new Error('Missing BlueSky credentials. Ensure BLUESKY_USERNAME and BLUESKY_PASSWORD are set in secrets.')
+  }
+
+  // Initialize and authenticate the BlueSky agent
+  agent = new BskyAgent({ service: 'https://bsky.social' })
+  await agent.login({ identifier: username, password })
+  console.log('Authenticated successfully with BlueSky.')
+  return agent
 }
